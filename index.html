@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Mappy, Happy!</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style type="text/css">
+            body{
+                margin:40px auto;
+                max-width:650px;
+                line-height:1.6;
+                font-size:18px;
+                color:#444;
+                padding:0
+                10px
+                }
+            h1,h2,h3{line-height:1.2}
+        </style>    
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css" />
+    <link rel="stylesheet" type="text/css" href="L.Mappy.css" />
+    <script type="text/javascript" src="https://unpkg.com/leaflet@1.0.3/dist/leaflet.js"></script>
+    <script type="text/javascript" src="L.Mappy.js"></script>
+  </head>  
+  <body>
+    <h1>Itinéraires en masse</h1>
+    <p>
+      <span>Destination : </span>
+      <span id="adresse_destination"></span>
+      <span id="coords_destination"></span>
+    </p>
+    <p>
+      <span>Ancienne Destination : </span>
+      <span id="ancienne_adresse_destination"></span>
+      <span id="anciennes_coords_destination"></span>
+    </p>
+    <textarea name="saisie" id="saisie" cols="80" rows="20">
+      Identité Matricule 	Numéro	Bis / Ter	Rue / Voie	Compl. adresse	Code postal	Commune
+
+Identite_Matricule	Adresses_Numero	Adresses_Bis_Ter	Adresses_Rue_Voie	Adresses_Compl_adresse	Adresses_Code_postal	Adresses_Commune	Analytique_Site	Analytique_Site_Listes_JDS_Libelle	Societes_Reglementaires_autorises	Etablissements_Reglementaires_autorises
+    </textarea>
+    <div>
+      <button onclick="javascript:massRouting(document.getElementById('saisie').value);">Calculer</button>
+      <button onclick="javascript:finalResult();">Résultat Final</button>      
+    </div>
+    <div id="ma-carte-ici" style="width:100%; height: 0px;"></div>
+    <textarea name="result" id="result" cols="80" rows="20">
+    </textarea>
+    <script src="https://button.glitch.me/button.js"></script>
+    <script language="javascript">
+        var exampleMap1 = new L.Mappy.Map( "ma-carte-ici", {
+            clientId: 'mappy',
+            center: [48.8288, 2.23117000000002],
+            zoom: 16
+        });
+      
+  dureePersonnes = {};
+  var latlngDestination = null;
+  var adresse_destination = "2 rue claude chappe - 35 510 Cesson Sévigné";
+  L.Mappy.Services.geocodeForward(
+    adresse_destination,
+    function(results) {     
+      var coordsTmp = results[0].geometry.geometries[0].coordinates.reverse();
+      latlngDestination = L.latLng(coordsTmp[0], coordsTmp[1]);
+      document.getElementById('adresse_destination').innerText  = adresse_destination;
+      var coords_destination = "(" + coordsTmp[0] + ", " + coordsTmp[1] + ")";
+      document.getElementById('coords_destination').innerText  = coords_destination;
+  
+    },
+    function (error) {
+      alert("Erreur geocodage" + adresse + "\n" + debugObj(error));
+  });    
+
+  var ancienne_adresse_destination = "33 Route de Pauillac - 33320 Eysines";
+  L.Mappy.Services.geocodeForward(
+    ancienne_adresse_destination,
+    function(results) {     
+      var coordsTmp = results[0].geometry.geometries[0].coordinates.reverse();
+      latlngAncienneDestination = L.latLng(coordsTmp[0], coordsTmp[1]);
+      document.getElementById('ancienne_adresse_destination').innerText  = ancienne_adresse_destination;
+      var anciennes_coords_destination = "(" + coordsTmp[0] + ", " + coordsTmp[1] + ")";
+      document.getElementById('anciennes_coords_destination').innerText  = anciennes_coords_destination;
+  
+    },
+    function (error) {
+      alert("Erreur geocodage" + adresse + "\n" + debugObj(error));
+  });    
+
+      
+  function debugObj(obj) {
+    return JSON.stringify(obj, null, 4);
+  }
+      
+  function finalResult() {
+    var header = "Matricule\tAdresse\tDurée vélo (min)\tDurée voiture (min)\tDurée transports en commun (min)";
+    console.log(header);    
+    document.getElementById('result').value = header + "\n";
+    for (var p in dureePersonnes) {
+        var ligneResultat = 
+            dureePersonnes[p]['matricule'] + "\t" + 
+            dureePersonnes[p]['adresse']  + "\t" + 
+            dureePersonnes[p]['bike']  + "\t" + 
+            dureePersonnes[p]['car'] + "\t" + 
+            dureePersonnes[p]['tc'];
+        console.log(ligneResultat);    
+        document.getElementById('result').value += ligneResultat + "\n";
+    }
+  }
+      
+  function massRouting(liste) {
+    var lignes = liste.split("\n");
+    var i = 0;
+    for (var numligne in lignes) {
+      var uneligne = lignes[numligne];
+      if (uneligne.replace(/^\s+|\s+$/g, '') == "" ) {
+        continue;
+      }
+      var fields = uneligne.split("\t");
+      var Identite_Matricule = fields[0];
+      var Adresses_Numero = fields[1];
+      var Adresses_Bis_Ter = fields[2];
+      var Adresses_Rue_Voie = fields[3];
+      var Adresses_Compl_adresse = fields[4];
+      var Adresses_Code_postal = fields[5];
+      var Adresses_Commune = fields[6];
+      var adresse = Adresses_Numero + " " + Adresses_Bis_Ter + " " + Adresses_Rue_Voie + " " + Adresses_Compl_adresse + " " + Adresses_Code_postal + " " + Adresses_Commune;
+      // alert("matricule " + Identite_Matricule + "\n adresse : " + adresse);
+      if ( i != 0 ) {
+        handleOnPerson(Identite_Matricule, adresse);      
+      } else {
+        displayHeader();
+      }
+      i++;
+      //if (i==5) { break ;}
+    }
+  };
+  
+  function displayResult(matricule, adresse, colonne, dureeMin) {
+        var ligneResultat = matricule + "\t" + adresse  + "\t" + colonne + "\t" + dureeMin;
+        console.log(ligneResultat);    
+        document.getElementById('result').value += ligneResultat + "\n";
+        if ( ! dureePersonnes[matricule] ) {
+          dureePersonnes[matricule] = {
+            matricule : matricule,
+            adresse : adresse
+          };          
+        }
+        dureePersonnes[matricule][colonne] = dureeMin;
+  };
+   
+  function displayHeader() {
+        var header = "Matricule\tAdresse\tMode de transport\tDurée (min)";
+        console.log(header);    
+        document.getElementById('result').value = header + "\n";
+  };
+ 
+  function handleOnPerson(matricule, adresse) {
+    L.Mappy.Services.geocodeForward(
+      adresse,
+      function(results) {     
+        var coordsTmp = results[0].geometry.geometries[0].coordinates.reverse();
+        var latlngFrom = L.latLng(coordsTmp[0], coordsTmp[1]);
+        // routingOnce(latlngFrom, "prev_car", matricule, adresse);
+        routingOnce(latlngFrom, "bike", matricule, adresse);
+        routingOnce(latlngFrom, "car", matricule, adresse);
+        routingOnce(latlngFrom, "tc", matricule, adresse);
+      },
+      function (error) {
+        alert("Erreur geocodage" + adresse + "\n" + debugObj(error));
+    });    
+  }
+      
+  function routingOnce(latlngTo, colonne, matricule, adresse) {
+      var provider = "car"; 
+      var dest = latlngDestination;
+      if (colonne == "tc") {
+        provider = "tc";
+      }
+      if (colonne == "prev_car") {
+        provider = "car";
+        dest = latlngAncienneDestination;
+      }
+      
+      var options = {
+                providers: provider,
+                from: latlngTo,
+                to: dest,
+                datetime: "20200720T0800" 
+      };
+      L.Mappy.Services.route(
+       options,
+       function(results) {
+          // alert(debugObj(results));
+          // console.log(debugObj(results))
+          var dureeMin = Math.round(results['routes'][0].time / 60);
+          displayResult(matricule, adresse, colonne, dureeMin);
+        },
+        function(error) {
+          if (provider == "tc") {
+            displayResult(matricule, adresse, colonne, "");
+          } else {
+            window.alert("Error iti vers " + adresse + "\n" + debugObj(error));            
+          }
+        }
+      );
+  };
+
+    </script>
+  </body>
+</html>
